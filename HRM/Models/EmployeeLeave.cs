@@ -40,23 +40,6 @@ namespace HRM.Models
         public DateTime ? DateApplied { get; set; }
         public Int16 DepartmentId { get; set; }
 
-        public override bool Equals(object obj)
-        {
-            return obj is EmployeeLeave leave &&
-                   BusinessEntityID == leave.BusinessEntityID &&
-                   LeaveTypeId == leave.LeaveTypeId &&
-                   StartTime == leave.StartTime &&
-                   EndTime == leave.EndTime;
-        }
-
-        public override int GetHashCode()
-        {
-            int hashCode = 1523975871;
-            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(BusinessEntityID);
-            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(LeaveTypeId);
-            hashCode = hashCode * -1521134295 + StartTime.GetHashCode();
-            hashCode = hashCode * -1521134295 + EndTime.GetHashCode();
-            return hashCode;
-        }
+       
     }
 }

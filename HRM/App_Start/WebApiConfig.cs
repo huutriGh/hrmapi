@@ -22,6 +22,7 @@ namespace HRM
                 defaults: new { id = RouteParameter.Optional }
             );
             config.Formatters.JsonFormatter.SupportedMediaTypes.Add(new MediaTypeHeaderValue("text/html"));
+            config.Formatters.JsonFormatter.SerializerSettings.DateFormatString = "yyyy-MM-ddTHH:mm:ss.fffZ";
             //var corsAttr = new EnableCorsAttribute("http://example.com", "*", "*");
             //config.EnableCors(corsAttr);
         }

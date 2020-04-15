@@ -18,7 +18,7 @@ namespace HRM.Services.ServiceImp
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("SELECT");
-            sb.AppendLine("D.DepartmentID, E.BusinessEntityID, E.LastName + ' ' + E.FirstName as EmployeeName, '#c0972e' as Color");
+            sb.AppendLine("D.DepartmentID, E.BusinessEntityID, E.LastName + ' ' + E.FirstName as EmployeeName, '#3d5afe' as Color");
             sb.AppendLine("FROM ");
             sb.AppendLine("Employee E");
             sb.AppendLine("Inner join EmployeeDepartmentHistory H ON H.BusinessEntityID = E.BusinessEntityID");

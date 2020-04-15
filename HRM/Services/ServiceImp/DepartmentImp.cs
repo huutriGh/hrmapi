@@ -15,7 +15,7 @@ namespace HRM.Services.ServiceImp
         }
         public IEnumerable<DepartmentResponse> getDepartment()
         {
-            string sql = "SELECT  DepartmentID, Name DepartmentName  , '#c0972e' as Color from Department";
+            string sql = "SELECT  DepartmentID, Name DepartmentName  , '#3d5afe' as Color from Department";
             var response = application.GetContext().Database.SqlQuery<DepartmentResponse>(sql).ToList();
             return response;
         }

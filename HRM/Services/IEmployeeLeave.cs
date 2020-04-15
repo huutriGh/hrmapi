@@ -14,6 +14,15 @@ namespace HRM.Services
         void insertUpdateRemoveEmployeeLeave(EmployeeLeaveRequest param, string userId, string businessEntityID);
       
         IEnumerable<LeavePendingApprove> GetLeavesPendingAprrove(dynamic data, string businessEntityID);
+
+        /// <summary>
+        /// Approve proccess
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="businessEntityID"></param>
+        /// <param name="userId"></param>
+        /// <param name="role"></param>
+        /// <returns></returns>
         LeaveApproveRequest Approve(LeaveApproveRequest data, string businessEntityID, string userId, string role);
 
     } 

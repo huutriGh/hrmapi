@@ -30,32 +30,32 @@ namespace HRM.Controllers
         }
         [Route("api/EmployeeLeave/GetEmployeeLeave")]
         [HttpPost]
-        public IEnumerable<EmployeeLeaveResponse> GetEmployeeLeaves(RangeDateRequest dateRequest)
+        public IHttpActionResult GetEmployeeLeaves(RangeDateRequest dateRequest)
         {
             
             var claimsIdentity = this.User.Identity as ClaimsIdentity;
             var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
-            return employeeLeave.GetEmployeeLeaves(dateRequest, businessEntityID);
+            return Ok(employeeLeave.GetEmployeeLeaves(dateRequest, businessEntityID));
 
         }
         [Route("api/EmployeeLeave/GetEmployeeLeaveDashBoard")]
         [HttpPost]
-        public IEnumerable<EmployeeLeaveResponse> GetEmployeeLeavesDashBoard(RangeDateRequest dateRequest)
+        public IHttpActionResult GetEmployeeLeavesDashBoard(RangeDateRequest dateRequest)
         {
 
             var claimsIdentity = this.User.Identity as ClaimsIdentity;
             var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
-            return employeeLeave.GetEmployeeLeaves(dateRequest, businessEntityID, true);
+            return Ok(employeeLeave.GetEmployeeLeaves(dateRequest, businessEntityID, true));
 
         }
         [Route("api/EmployeeLeave/GetLeavePendingApprove")]
         [HttpPost]
-        public IEnumerable<LeavePendingApprove> GetLeavePendingApprove(dynamic para)
+        public IHttpActionResult GetLeavePendingApprove(dynamic para)
         {
           
             var claimsIdentity = this.User.Identity as ClaimsIdentity;
             var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
-            return employeeLeave.GetLeavesPendingAprrove(para, businessEntityID);
+            return Ok(employeeLeave.GetLeavesPendingAprrove(para, businessEntityID));
 
         }  
         [Route("api/EmployeeLeave/Approve")]
@@ -80,18 +80,27 @@ namespace HRM.Controllers
             
          
 
-        } 
+        }
 
         [Route("api/EmployeeLeave/UpdateData")]
         [HttpPost]
         public IHttpActionResult insertUpdateRemoveEmployeeLeave(EmployeeLeaveRequest param)
         {
-            var claimsIdentity = this.User.Identity as ClaimsIdentity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.Name)?.Value;
-            var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
-            employeeLeave.insertUpdateRemoveEmployeeLeave(param, userId, businessEntityID);
-            return Ok();
-          
+            try
+            {
+                var claimsIdentity = this.User.Identity as ClaimsIdentity;
+                var userId = claimsIdentity.FindFirst(ClaimTypes.Name)?.Value;
+                var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
+                employeeLeave.insertUpdateRemoveEmployeeLeave(param, userId, businessEntityID);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return Content(HttpStatusCode.Forbidden, ex.Message);
+
+            }
+
+
         }
        
     }

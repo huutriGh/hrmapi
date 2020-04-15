@@ -23,6 +23,7 @@ namespace HRM
             container.RegisterType<IEmployeeLeave, EmployeeLeaveImp>();
             container.RegisterType<IEmployee, EmmloyeeImp>();
             container.RegisterType<IDepartment, DepartmentImp>();
+            container.RegisterType<IHelper, HelperIml>();
 
             GlobalConfiguration.Configuration.DependencyResolver = new UnityDependencyResolver(container);
         }

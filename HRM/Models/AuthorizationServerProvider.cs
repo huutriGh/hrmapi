@@ -33,7 +33,7 @@ namespace HRM.Models
 
             //try
             //{
-            //    var adContext = new PrincipalContext(ContextType.Domain, "phuhunglife.com","1234567");
+            //    var adContext = new PrincipalContext(ContextType.Domain, "phuhunglife.com", "1234567");
             //    adContext.ValidateCredentials(context.UserName, context.Password);
 
             //}

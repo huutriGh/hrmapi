@@ -9,9 +9,12 @@ namespace HRM.Services.ServiceImp
     public class AccountImp : IAccount, IDisposable
     {
         private readonly ApplicationContext application = new ApplicationContext();
+        private readonly HelperIml helper = new HelperIml();
+       
         public void Dispose()
         {
             application.Dispose();
+            
         }
 
         public IEnumerable<string> GetUserFunction(string userId)
@@ -24,7 +27,7 @@ namespace HRM.Services.ServiceImp
         public User ValidateUser(string userName, string password)
         {
             var user = application.users.Where(u => u.UserID.Equals(userName, StringComparison.OrdinalIgnoreCase)).SingleOrDefault() ?? null;
-            var hashPassword = Helper.validPassword(password, user == null ? null : user.Password);
+            var hashPassword = helper.validPassword(password, user == null ? null : user.Password);
             return application.users.Where(u => u.UserID.Equals(userName, StringComparison.OrdinalIgnoreCase) && hashPassword).FirstOrDefault();
         }
         public async Task<bool> AddRefreshToken(RefreshToken token)

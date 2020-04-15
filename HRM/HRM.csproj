@@ -160,6 +160,7 @@
     <Compile Include="Controllers\EmployeeLeaveController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\LeaveController.cs" />
+    <Compile Include="Models\Employee.cs" />
     <Compile Include="Models\LeaveStatus.cs" />
     <Compile Include="Models\LeaveType.cs" />
     <Compile Include="Models\Request\EmployeeLeaveRequest.cs" />
@@ -176,10 +177,11 @@
     <Compile Include="Models\Response\EmployeeLeaveResponse.cs" />
     <Compile Include="Models\Response\EmployeeResponse.cs" />
     <Compile Include="Models\Response\LeavePendingApprove.cs" />
+    <Compile Include="Models\SystemConfig.cs" />
     <Compile Include="Models\UserFunction.cs" />
-    <Compile Include="Models\Helper.cs" />
     <Compile Include="Models\User.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\IHelper.cs" />
     <Compile Include="Services\IDepartment.cs" />
     <Compile Include="Services\IEmployee.cs" />
     <Compile Include="Services\IEmployeeLeave.cs" />
@@ -189,6 +191,7 @@
     <Compile Include="Services\ServiceImp\DepartmentImp.cs" />
     <Compile Include="Services\ServiceImp\EmmloyeeImp.cs" />
     <Compile Include="Services\ServiceImp\EmployeeLeaveImp.cs" />
+    <Compile Include="Services\ServiceImp\HelperIml.cs" />
     <Compile Include="Startup.cs" />
   </ItemGroup>
   <ItemGroup>

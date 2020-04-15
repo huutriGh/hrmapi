@@ -19,6 +19,7 @@ namespace HRM.Models
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<EmployeeLeave> EmployeeLeave { get; set; }
         public DbSet<LeaveStatus> LeaveStatus { get; set; }
+        public DbSet<SystemConfig> SystemConfig { get; set; }
 
 
         public ApplicationContext GetContext()
