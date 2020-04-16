@@ -32,13 +32,12 @@ namespace HRM.Services.ServiceImp
                         var lRole = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(role);
                         var funtionId = context.UserFunction.Where(u => u.UserId.Equals(userId, StringComparison.OrdinalIgnoreCase));
                         StringBuilder sb = new StringBuilder();
-                        double TotalMiniuteLeave = 0;
-                        string BusinessEntityIDApproved = "";
+
 
                         foreach (var value in param.changed.Distinct())
                         {
                             sb.Clear();
-                           
+
                             if (value.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase) && !businessEntityID.Equals(value.RankId))
                             {
                                 throw new Exception("You can only apply your Leave.");
@@ -101,78 +100,39 @@ namespace HRM.Services.ServiceImp
                                 int rowEffect = context.Database.ExecuteSqlCommand(sb.ToString(), parameter);
                                 if (rowEffect > 0)
                                 {
-                                    var emp = context.Database.SqlQuery<Employee>("select RemainingVacationHours,PreviousYearVacationHours,WorkOnSaturday from Employee where BusinessEntityID  =@BusinessEntityID", new SqlParameter("@businessEntityID", currentLeaveStatus.BusinessEntityID)).FirstOrDefault();
-
 
                                     if (value.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) && currentLeaveStatus.LeaveTypeId.Equals("Annual", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        //if (emp.WorkOnSaturday)// Nhân viên có làm việc ngày thứ 7
-                                        //{
-                                        //    if (currentLeaveStatus.IsAllDay)// Xin phép chọn nguyên ngày
-                                        //    {
-                                        //        var dayOfweekOfStartDate = currentLeaveStatus.StartTime.DayOfWeek.ToString();
-                                        //        var dayOfWeekOfEndDate = currentLeaveStatus.EndTime.DayOfWeek.ToString();
-                                        //        if (dayOfweekOfStartDate.Equals("Saturday") && dayOfWeekOfEndDate.Equals("Saturday")) // Ngày bắt đầu và ngày kết thúc đều là thứ 7
-                                        //        {
-                                        //            TotalMiniuteLeave += (4 * 60);
-                                        //        }
-                                        //    }
 
-
-
-
-
-                                        //}
-                                        //else
-                                        //{
-                                        //    var hours = (currentLeaveStatus.EndTime - currentLeaveStatus.StartTime).TotalMinutes;
-                                        //    TotalMiniuteLeave += (emp.PreviousYearVacationHours - hours);
-
-                                        //}
-                                        TotalMiniuteLeave = CalculationRemaining(TotalMiniuteLeave, currentLeaveStatus, emp);
-                                        BusinessEntityIDApproved = currentLeaveStatus.BusinessEntityID;
-
+                                        CalculationRemaining(currentLeaveStatus);
 
                                     }
 
-
-
-
                                 }
-                               
+
                             }
                         }
-                        if(TotalMiniuteLeave > 0)
-                        {
-                            sb.Clear();
-                            sb.AppendLine("update Employee set RemainingVacationHours = RemainingVacationHours - @TotalMiniuteLeave where BusinessEntityID  =@BusinessEntityID ");
 
-                           
-                            var pr = new SqlParameter[]
-                          {
-                                            new SqlParameter("@businessEntityID", BusinessEntityIDApproved),
-                                            new SqlParameter("@TotalMiniuteLeave", TotalMiniuteLeave)
-                          };
-                            context.Database.ExecuteSqlCommand(sb.ToString(), pr);
-                        }
 
                     }
-                    
-                   // context.SaveChanges();
+
+
                     dbContextTransaction.Commit();
-                   
+
                     return param;
                 }
-                
+
             }
 
         }
 
-        private static double CalculationRemaining(double TotalMiniuteLeave, EmployeeLeave currentLeaveStatus, Employee emp)
+        private  void CalculationRemaining( EmployeeLeave currentLeaveStatus)
         {
-
+            double TotalMiniuteLeave;
             for (DateTime date = currentLeaveStatus.StartTime; date <= currentLeaveStatus.EndTime; date = date.AddDays(1))
             {
+                TotalMiniuteLeave = 0;
+                var emp = application.GetContext().Database.SqlQuery<Employee>("select RemainingVacationHours,PreviousYearVacationHours,WorkOnSaturday from Employee where BusinessEntityID  =@BusinessEntityID", new SqlParameter("@businessEntityID", currentLeaveStatus.BusinessEntityID)).FirstOrDefault();
                 if (date.DayOfWeek.ToString() == "Sunday" || (date.DayOfWeek.ToString() == "Saturday" && !emp.WorkOnSaturday))
                 {
                     continue;
@@ -192,33 +152,99 @@ namespace HRM.Services.ServiceImp
                 }
                 else
                 {
-
-
                     if (date.DayOfWeek.ToString() == "Saturday" && emp.WorkOnSaturday)
                     {
-                        var start = currentLeaveStatus.StartTime.Hour < 8 ? new DateTime(currentLeaveStatus.StartTime.Year, currentLeaveStatus.StartTime.Month, currentLeaveStatus.StartTime.Day, 8, 0, 0) : currentLeaveStatus.StartTime;
-                        var end = currentLeaveStatus.EndTime.Hour > 12 ? new DateTime(currentLeaveStatus.EndTime.Year, currentLeaveStatus.EndTime.Month, currentLeaveStatus.EndTime.Day, 12, 0, 0) : currentLeaveStatus.EndTime;
-                        TotalMiniuteLeave += (start - end).TotalMinutes;
+                        var start = currentLeaveStatus.StartTime.Hour < 8 ? new DateTime(date.Year, date.Month, date.Day, 8, 0, 0) : new DateTime(date.Year, date.Month, date.Day, currentLeaveStatus.StartTime.Hour, currentLeaveStatus.StartTime.Minute, currentLeaveStatus.StartTime.Second);
+                        var end = currentLeaveStatus.EndTime.Hour >= 12 && currentLeaveStatus.EndTime.Minute > 0 ? new DateTime(date.Year, date.Month, date.Day, 12, 0, 0) : new DateTime(date.Year, date.Month, date.Day, currentLeaveStatus.EndTime.Hour, currentLeaveStatus.EndTime.Minute, currentLeaveStatus.EndTime.Second);
+                        TotalMiniuteLeave += (end - start).TotalMinutes;
                     }
-                    else
+                    else if (currentLeaveStatus.StartTime.Date == currentLeaveStatus.EndTime.Date)
                     {
-                        var start = currentLeaveStatus.StartTime.Hour < 8 ? new DateTime(currentLeaveStatus.StartTime.Year, currentLeaveStatus.StartTime.Month, currentLeaveStatus.StartTime.Day, 8, 0, 0) :  (currentLeaveStatus.StartTime.Hour >= 12 && currentLeaveStatus.StartTime.Hour <= 13 ? new DateTime(currentLeaveStatus.StartTime.Year, currentLeaveStatus.StartTime.Month, currentLeaveStatus.StartTime.Day, 13, 0, 0) :   currentLeaveStatus.StartTime);
-                        var end = currentLeaveStatus.EndTime.Hour > 17 ? new DateTime(currentLeaveStatus.EndTime.Year, currentLeaveStatus.EndTime.Month, currentLeaveStatus.EndTime.Day, 17, 0, 0) : (currentLeaveStatus.EndTime.Hour >= 12 && currentLeaveStatus.EndTime.Hour <= 13 ? new DateTime(currentLeaveStatus.EndTime.Year, currentLeaveStatus.EndTime.Month, currentLeaveStatus.EndTime.Day, 13, 0, 0) : currentLeaveStatus.EndTime);
-                        if(start.Hour <= 12 && end.Hour >= 13)
+                        var start = currentLeaveStatus.StartTime.Hour < 8 ?
+                            new DateTime(date.Year, date.Month, date.Day, 8, 0, 0) :
+                            (currentLeaveStatus.StartTime.Hour >= 12 && currentLeaveStatus.StartTime.Hour <= 13 ?
+                            new DateTime(date.Year, date.Month, date.Day, 13, 0, 0) :
+                            new DateTime(date.Year, date.Month, date.Day, currentLeaveStatus.StartTime.Hour, currentLeaveStatus.StartTime.Minute, currentLeaveStatus.StartTime.Second));
+
+                        var end = currentLeaveStatus.EndTime.Hour > 17 ?
+                            new DateTime(date.Year, date.Month, date.Day, 17, 0, 0) :
+                            (currentLeaveStatus.EndTime.Hour >= 12 && currentLeaveStatus.EndTime.Hour <= 13 ?
+                            new DateTime(date.Year, date.Month, date.Day, 12, 0, 0) : new DateTime(date.Year, date.Month, date.Day, currentLeaveStatus.EndTime.Hour, currentLeaveStatus.EndTime.Minute, currentLeaveStatus.EndTime.Second));
+                        if (start.Hour <= 12 && end.Hour >= 13)
                         {
-                            TotalMiniuteLeave = (start - end).TotalMinutes - 60;
+                            TotalMiniuteLeave += ((end - start).TotalMinutes - 60);
                         }
                         else
                         {
-                            TotalMiniuteLeave = (start - end).TotalMinutes;
+                            TotalMiniuteLeave += ((end - start).TotalMinutes);
+                        }
+                    }
+                    else if (date.Date == currentLeaveStatus.EndTime.Date ) // Ngày cuối cùng trong đợt nghỉ hoặc ngày cuối và ngày đầu cùng một ngày
+                    {
+
+
+                        var start = new DateTime(date.Year, date.Month, date.Day, 8, 0, 0);
+                        var end = currentLeaveStatus.EndTime.Hour > 17 ? 
+                            new DateTime(date.Year, date.Month, date.Day, 17, 0, 0) : 
+                            (currentLeaveStatus.EndTime.Hour >= 12 && currentLeaveStatus.EndTime.Hour <= 13 ? 
+                            new DateTime(date.Year, date.Month, date.Day, 12, 0, 0) : new DateTime(date.Year,date.Month,date.Day, currentLeaveStatus.EndTime.Hour, currentLeaveStatus.EndTime.Minute, currentLeaveStatus.EndTime.Second));
+                        if (start.Hour <= 12 && end.Hour >= 13)
+                        {
+                            TotalMiniuteLeave += ((end- start).TotalMinutes - 60);
+                        }
+                        else
+                        {
+                            TotalMiniuteLeave += ((end- start).TotalMinutes);
+                        }
+
+                    }
+                    
+                    else
+                    {
+                        TotalMiniuteLeave += (date.Date != currentLeaveStatus.StartTime.Date ? 8 * 60 : ((new DateTime(date.Year, date.Month, date.Day, 17, 00, 00) - currentLeaveStatus.StartTime).TotalMinutes - 60));
+                    }
+
+
+
+
+
+                }
+                if (TotalMiniuteLeave > 0)
+                {
+                   
+                   
+                    StringBuilder sb = new StringBuilder();
+                    if (date.Month > 3 || emp.PreviousYearVacationHours == 0)
+                    {
+                        sb.AppendLine("update Employee set RemainingVacationHours = RemainingVacationHours - @TotalMiniuteLeave where BusinessEntityID  =@BusinessEntityID ");
+                    }
+                    else
+                    {
+
+                        var result = emp.PreviousYearVacationHours - TotalMiniuteLeave;
+                        if (result >= 0)
+                        {
+                            sb.AppendLine("update Employee set PreviousYearVacationHours = PreviousYearVacationHours - @TotalMiniuteLeave where BusinessEntityID  =@BusinessEntityID ");
+                        }
+                        else
+                        {
+                            sb.AppendLine("update Employee set PreviousYearVacationHours = 0 , RemainingVacationHours= RemainingVacationHours - @TotalMiniuteLeave where BusinessEntityID  =@BusinessEntityID ");
+                            TotalMiniuteLeave = -result;
                         }
                     }
 
 
+
+                    var pr = new SqlParameter[]
+                  {
+                                            new SqlParameter("@businessEntityID", currentLeaveStatus.BusinessEntityID),
+                                            new SqlParameter("@TotalMiniuteLeave", TotalMiniuteLeave)
+                  };
+                    application.GetContext().Database.ExecuteSqlCommand(sb.ToString(), pr);
                 }
             }
 
-            return TotalMiniuteLeave;
+          
         }
 
 
