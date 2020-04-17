@@ -32,8 +32,8 @@ namespace HRM.Services.ServiceImp
                         var lRole = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(role);
                         var funtionId = context.UserFunction.Where(u => u.UserId.Equals(userId, StringComparison.OrdinalIgnoreCase));
                         StringBuilder sb = new StringBuilder();
-
-
+                        List< EmployeeLeave> mainContent = new List<EmployeeLeave>();
+                        string status = "";
                         foreach (var value in param.changed.Distinct())
                         {
                             sb.Clear();
@@ -98,9 +98,11 @@ namespace HRM.Services.ServiceImp
                             if (sb.Length > 0)
                             {
                                 int rowEffect = context.Database.ExecuteSqlCommand(sb.ToString(), parameter);
+                                
                                 if (rowEffect > 0)
                                 {
-
+                                    status = value.Status;
+                                    mainContent.Add(currentLeaveStatus);
                                     if (value.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) && currentLeaveStatus.LeaveTypeId.Equals("Annual", StringComparison.OrdinalIgnoreCase))
                                     {
 
@@ -112,12 +114,16 @@ namespace HRM.Services.ServiceImp
 
                             }
                         }
-
+                        dbContextTransaction.Commit();
+                        if (mainContent.Count > 0)
+                        {
+                            helper.SendEmail(status, mainContent, "", "");
+                        }
 
                     }
+                  
 
-
-                    dbContextTransaction.Commit();
+                    
 
                     return param;
                 }
@@ -286,7 +292,7 @@ namespace HRM.Services.ServiceImp
             sb.AppendLine("DECLARE @Manager hierarchyid  ");
             sb.AppendLine("SELECT @Manager = OrganizationNode from  Employee where BusinessEntityID = @BusinessEntityID");
             sb.AppendLine("select EL.LeaveId as Id,EL.BusinessEntityID as RankId, cast (EL.LeaveId as nvarchar(10)) + ' - ' + LT.Description as Title,LS.LeaveStatusDesc as Status,");
-            sb.AppendLine("null as Sumary, 'Normal' as Priority,CONVERT(varchar(10),StartTime, 103) + ' - ' + CONVERT(varchar(10),EndTime, 103) as Tags,");
+            sb.AppendLine("null as Sumary, 'Normal' as Priority,CONVERT(varchar(20),StartTime, 120) + ' - ' + CONVERT(varchar(20),EndTime, 120) as Tags,");
             sb.AppendLine("QUOTENAME(EL.BusinessEntityID)  + E.FullName as Assignee");
             sb.AppendLine("from Employee E ");
             sb.AppendLine("inner join EmployeeLeave EL on E.BusinessEntityID = El.BusinessEntityID");
@@ -330,8 +336,8 @@ namespace HRM.Services.ServiceImp
                     EmployeeLeave appointment = new EmployeeLeave()
                     {
 
-                        StartTime = value.StartTime.ToLocalTime(),
-                        EndTime = value.EndTime.ToLocalTime(),
+                        StartTime = value.StartTime,
+                        EndTime = value.EndTime,
                         LeaveTypeId = value.Subject,
                         IsAllDay = value.IsAllDay,
                         Residence = value.Residence,
@@ -362,8 +368,8 @@ namespace HRM.Services.ServiceImp
                     {
 
                         EmployeeLeave appointment = application.GetContext().EmployeeLeave.Single(A => A.LeaveId == value.Id);
-                        appointment.StartTime = value.StartTime.ToLocalTime();
-                        appointment.EndTime = value.EndTime.ToLocalTime();
+                        appointment.StartTime = value.StartTime;
+                        appointment.EndTime = value.EndTime;
                         appointment.LeaveTypeId = value.Subject;
                         appointment.IsAllDay = value.IsAllDay;
                         appointment.Residence = value.Residence;

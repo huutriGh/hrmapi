@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNet.Cryptography.KeyDerivation;
+﻿using HRM.Models;
+using Microsoft.AspNet.Cryptography.KeyDerivation;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -29,24 +31,90 @@ namespace HRM.Services.ServiceImp
 
        
         private const int DerivationIterations = 1000;
-        public void SendEmail(string subject, string body, string mailTo, string cc)
+        public void SendEmail(string subject, List<EmployeeLeave> mainContent, string mailTo, string cc)
         {
             try
             {
+                var leaveType = application.GetContext().LeaveType.ToList();
+                StringBuilder listLeave = new StringBuilder();
+                var EmployeeRequest = application.GetContext().Database.SqlQuery<Employee>("select Gender,  FullName from Employee where BusinessEntityID = @BusinessEntityID", new SqlParameter("@businessEntityID", mainContent.First().BusinessEntityID)).FirstOrDefault();
                 var mailConfig = application.GetContext().SystemConfig.Where(c => c.Id.Equals(1)).SingleOrDefault();
-                if(mailConfig != null)
+                string action = subject.Equals("Applied", StringComparison.OrdinalIgnoreCase) ? "Verify" : (subject.Equals("verified", StringComparison.OrdinalIgnoreCase) ? "approve" : "completed");
+                StringBuilder sb = new StringBuilder();
+                SqlParameter paramter = new SqlParameter("@businessEntityID", mainContent.First().BusinessEntityID);
+                if (action == "Verify" || action == "approve")
                 {
-                    SmtpClient mailcl = new SmtpClient(mailConfig.MailServer);
-                    MailAddress from = new MailAddress(mailConfig.Email);
-                    mailcl.UseDefaultCredentials = false;
-                    mailcl.Credentials = new NetworkCredential(mailConfig.EmailUser, Decrypt(mailConfig.PasswordEmail, mailConfig.MailServer));
+                    sb.AppendLine("DECLARE @Manager hierarchyid");
+                    sb.AppendLine("Select @Manager = OrganizationNode from  Employee where BusinessEntityID = @businessEntityID");
+                    
 
+                    if (action == "approve")
+                    {
+                        sb.AppendLine("select Email, Gender, FirstName from Employee where OrganizationNode = @Manager.GetAncestor(2)");
+                       
+                    }
+                    else
+                    {
+                        sb.AppendLine("select Email, Gender, FirstName from Employee where OrganizationNode = @Manager.GetAncestor(1)");
+                        paramter = new SqlParameter("@businessEntityID", mainContent.First().PersonVerified);
+                    }
+
+                }
+                else
+                {
+
+                    sb.AppendLine("select Email, Gender, FirstName from Employee where BusinessEntityID = @businessEntityID");
+                }
+
+
+                var emailTo = application.GetContext().Database.SqlQuery<Employee>(sb.ToString(), paramter).FirstOrDefault();
+                string body = "";
+                foreach (var item in mainContent)
+                {
+
+                    listLeave.AppendLine("<tr>");
+                    listLeave.AppendLine("<td>" + item.BusinessEntityID + "</td>");
+                    listLeave.AppendLine("<td>" + EmployeeRequest.FullName + "</td>");
+                    listLeave.AppendLine("<td>" + leaveType.Where(l => l.LeaveTypeId.Equals(item.LeaveTypeId)).Select(l => l.Description).FirstOrDefault() + "</td>");
+                    listLeave.AppendLine("<td>" + item.StartTime.ToString("yyyy-MM-dd HH:mm:ss") + "</td>");
+                    listLeave.AppendLine("<td>" + item.EndTime.ToString("yyyy-MM-dd HH:mm:ss") + "</td>");
+                    listLeave.AppendLine("<td>" + (item.Residence == "residence" ? "Place of residence" : "Travel out of residence") + " </td>");
+                    listLeave.AppendLine("<td>" + item.ToLocation + "</td>");
+                    listLeave.AppendLine("<td>" + item.Contact + "</td>");
+                    listLeave.AppendLine("<td>" + item.PersonToCover + "</td>");
+                    listLeave.AppendLine("</tr>");
+
+                }
+                if (!action.Equals("completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    body = mailConfig.EmailTemplate.Replace("[Name]", (emailTo.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + emailTo.FirstName).Replace("[Employee]", (EmployeeRequest.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName).Replace("[Action]", action).Replace("[body]", listLeave.ToString());
+                }
+                else
+                {
+                    body = mailConfig.EmailTemplateAprroved.Replace("[Name]", (EmployeeRequest.Gender.Equals("F",StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName ).Replace("[body]", listLeave.ToString());
+                }
+
+
+
+
+                if (mailConfig != null)
+                {
+                    //SmtpClient mailcl = new SmtpClient(mailConfig.MailServer);
+                    //MailAddress from = new MailAddress(mailConfig.Email);  
+                    SmtpClient mailcl = new SmtpClient("smtp.live.com");
+                    MailAddress from = new MailAddress("huutriqt13@hotmail.com");
+                    mailcl.UseDefaultCredentials = false;
+                    // mailcl.Credentials = new NetworkCredential(mailConfig.EmailUser, Decrypt(mailConfig.PasswordEmail, mailConfig.MailServer));
+                    mailcl.Credentials = new NetworkCredential("huutriqt13@hotmail.com", "tri@hotmail.com");
+                    mailcl.Port = 25;
+                    mailcl.EnableSsl = true;
                     MailMessage Msg = new MailMessage();
-                    Msg.To.Add(mailTo);
+                    Msg.To.Add(emailTo.Email);
+
                     Msg.From = from;
-                    Msg.Subject = subject;
+                    Msg.Subject = "Leave Request";
                     Msg.Body = body;
-                    Msg.IsBodyHtml = false;
+                    Msg.IsBodyHtml = true;
                     Msg.BodyEncoding = System.Text.Encoding.UTF8;
                     mailcl.Send(Msg);
                 }
@@ -55,7 +123,7 @@ namespace HRM.Services.ServiceImp
                     throw new Exception("Email is not configed !!!");
                 }
 
-                
+
 
 
             }

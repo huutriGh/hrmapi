@@ -19,5 +19,6 @@ namespace HRM.Models
         public string EmailTemplate { get; set; }
 
         public string MailServer { get; set; }
+        public string EmailTemplateAprroved { get; set; }
     }
 }

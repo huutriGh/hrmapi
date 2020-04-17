@@ -1,6 +1,8 @@
-﻿using HRM.Models.Response;
+﻿using HRM.Models;
+using HRM.Models.Response;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Web;
@@ -25,6 +27,14 @@ namespace HRM.Services.ServiceImp
             sb.AppendLine("left join Department D ON H.DepartmentID = D.DepartmentID");
             var response = application.GetContext().Database.SqlQuery<EmployeeResponse>(sb.ToString()).ToList();
             return response;
+        }
+        public dynamic GetEmployeesRemainingHours(string BusinessEntityID)
+        {
+           var response =  application.GetContext().Database.SqlQuery<Employee>("select RemainingVacationHours,PreviousYearVacationHours,WorkOnSaturday from Employee where BusinessEntityID  =@BusinessEntityID", new SqlParameter("@businessEntityID", BusinessEntityID)).FirstOrDefault();
+           
+                var RemainingVacationHours = (response.RemainingVacationHours / (8.0*60));
+                var PreviousYearVacationHours = (response.PreviousYearVacationHours / (8.0*60));
+                return new  {RemainingVacationHours, PreviousYearVacationHours };
         }
     }
 }
