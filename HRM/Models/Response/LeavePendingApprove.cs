@@ -15,7 +15,8 @@ namespace HRM.Models.Response
         public string Tags { get; set; }
         public string Assignee { get; set; }
         public string RankId { get; set; }
-
+        public string AssigneeVer { get; set; }
+        public string AssigneeApp { get; set; }
         public override bool Equals(object obj)
         {
             return obj is LeavePendingApprove approve &&

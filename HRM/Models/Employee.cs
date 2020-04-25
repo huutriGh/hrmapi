@@ -7,6 +7,7 @@ namespace HRM.Models
 {
     public class Employee
     {
+        public string BusinessEntityID { get; set; }
         public Int16 RemainingVacationHours { get; set; }
         public Int16 PreviousYearVacationHours { get; set; }
         public bool WorkOnSaturday { get; set; }

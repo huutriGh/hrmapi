@@ -25,6 +25,7 @@ namespace HRM.Models.Request
             public DateTime StartTime { get; set; }
             public DateTime EndTime { get; set; }
             public bool IsAllDay { get; set; }
+            public bool IsHalfDay { get; set; }
             public string StartTimezone { get; set; }
             public string EndTimezone { get; set; }
 

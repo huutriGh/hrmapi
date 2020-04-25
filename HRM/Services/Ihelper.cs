@@ -9,7 +9,7 @@ namespace HRM.Services
 {
     public interface IHelper
     {
-        void SendEmail(string subject, List<EmployeeLeave> mainContent, string mailTo, string cc);
+        void SendEmail(string subject, List<EmployeeLeave> mainContent, string mailTo, Int16 cc);
         string Encrypt(string input);
         bool validPassword(string password, string hashedPassword);
     }

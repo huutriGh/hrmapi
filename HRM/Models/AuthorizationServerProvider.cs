@@ -29,21 +29,22 @@ namespace HRM.Models
 
         public override async Task GrantResourceOwnerCredentials(OAuthGrantResourceOwnerCredentialsContext context)
         {
-            // context.OwinContext.Response.Headers.Add("Access-Control-Allow-Origin", new[] { "*" });
 
+            // Usubg Domain
             //try
             //{
-            //    var adContext = new PrincipalContext(ContextType.Domain, "phuhunglife.com", "1234567");
+            //    var adContext = new PrincipalContext(ContextType.Domain, "phuhunglife.com");
             //    adContext.ValidateCredentials(context.UserName, context.Password);
 
             //}
-            //catch (Exception ex)
+            //catch (Exception)
             //{
-            //    var a = ex;
+            //    context.SetError("invalid_grant", "Provided username and password is incorrect");
+            //    return;
 
             //}
 
-
+            // Using database
             var user = account.ValidateUser(context.UserName, context.Password);
             if (user == null)
             {
@@ -61,6 +62,7 @@ namespace HRM.Models
 {
             { "userId", user.UserID },
             { "userName", user.UserName },
+            { "businessEntityID", user.BusinessEntityID },
 
             { "userFuntion",role },
 
@@ -69,7 +71,7 @@ namespace HRM.Models
             context.Validated(ticket);
 
 
-        } 
+        }
         public override Task TokenEndpoint(OAuthTokenEndpointContext context)
         {
             foreach (KeyValuePair<string, string> property in context.Properties.Dictionary)

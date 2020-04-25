@@ -27,19 +27,22 @@ namespace HRM.Models
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public DateTime Intime { get; set; }
         public string UserId { get; set; }
-        public bool IsAllDay { get;  set; }
-        public string ToLocation { get;  set; }
-        
+        public bool IsAllDay { get; set; }
+        public bool IsHalfDay { get; set; }
+        public string ToLocation { get; set; }
+
         public byte Status { get; set; }
         public string PersonApproved { get; set; }
         public string PersonVerified { get; set; }
-        
-        public DateTime ? DateApproved { get; set; }
-       
-        public DateTime ? DateVerified { get; set; }
-        public DateTime ? DateApplied { get; set; }
-        public Int16 DepartmentId { get; set; }
 
-       
-    }
+        public DateTime? DateApproved { get; set; }
+
+        public DateTime? DateVerified { get; set; }
+        public DateTime? DateApplied { get; set; }
+        public Int16 DepartmentId { get; set; }
+        public string AssigneeApp { get; set; }
+        public string AssigneeVer { get; set; }
+
+
+    } 
 }

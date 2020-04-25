@@ -10,6 +10,7 @@ namespace HRM.Services
     public interface IEmployee
     {
         IEnumerable<EmployeeResponse> GetEmployeesWithDepartment();
+        IEnumerable<dynamic> GetAssignee(string BusinessEntityID);
         dynamic GetEmployeesRemainingHours(string BusinessEntityID);
     }
 }

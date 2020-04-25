@@ -24,7 +24,7 @@ namespace HRM.Models
 
         public ApplicationContext GetContext()
         {
-            return this;
+            return this ?? new ApplicationContext();
         }
     }
 }

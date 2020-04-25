@@ -34,6 +34,14 @@ namespace HRM.Controllers
             var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
             return Ok(employee.GetEmployeesRemainingHours(businessEntityID));
         }
+        [Route("api/Employee/GetAssignee")]
+        [HttpGet]
+        public IHttpActionResult GetAssignee()
+        {
+            var claimsIdentity = this.User.Identity as ClaimsIdentity;
+            var businessEntityID = claimsIdentity.FindFirst(ClaimTypes.Actor)?.Value;
+            return Ok(employee.GetAssignee(businessEntityID));
+        }
 
     }
 }

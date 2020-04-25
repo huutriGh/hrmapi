@@ -31,32 +31,41 @@ namespace HRM.Services.ServiceImp
 
        
         private const int DerivationIterations = 1000;
-        public void SendEmail(string subject, List<EmployeeLeave> mainContent, string mailTo, string cc)
+        public void SendEmail(string subject, List<EmployeeLeave> mainContent, string mailTo, Int16 node)
         {
             try
             {
                 var leaveType = application.GetContext().LeaveType.ToList();
+                var content = application.GetContext().EmployeeLeave.ToList().Where(el => mainContent.Select(m => m.LeaveId).Contains(el.LeaveId)).ToList();
                 StringBuilder listLeave = new StringBuilder();
-                var EmployeeRequest = application.GetContext().Database.SqlQuery<Employee>("select Gender,  FullName from Employee where BusinessEntityID = @BusinessEntityID", new SqlParameter("@businessEntityID", mainContent.First().BusinessEntityID)).FirstOrDefault();
+                var EmployeeRequest = application.GetContext().Database.SqlQuery<Employee>("select Gender,  FullName from Employee where BusinessEntityID = @BusinessEntityID", new SqlParameter("@businessEntityID", content.First().BusinessEntityID)).FirstOrDefault();
                 var mailConfig = application.GetContext().SystemConfig.Where(c => c.Id.Equals(1)).SingleOrDefault();
-                string action = subject.Equals("Applied", StringComparison.OrdinalIgnoreCase) ? "Verify" : (subject.Equals("verified", StringComparison.OrdinalIgnoreCase) ? "approve" : "completed");
+                //string action = hubject.Equals("Applied", StringComparison.OrdinalIgnoreCase) && node == 5 ? "Verify" : ((subject.Equals("verified", StringComparison.OrdinalIgnoreCase) || subject.Equals("verified", StringComparison.OrdinalIgnoreCase)) ? "approve" : "completed");
+                var action = content.FirstOrDefault().Status;
                 StringBuilder sb = new StringBuilder();
-                SqlParameter paramter = new SqlParameter("@businessEntityID", mainContent.First().BusinessEntityID);
-                if (action == "Verify" || action == "approve")
+                SqlParameter paramter = new SqlParameter("@businessEntityID", content.First().BusinessEntityID);
+                if (action == 1 || action == 2)
                 {
-                    sb.AppendLine("DECLARE @Manager hierarchyid");
-                    sb.AppendLine("Select @Manager = OrganizationNode from  Employee where BusinessEntityID = @businessEntityID");
-                    
+                    if (  ( action ==2 && string.IsNullOrEmpty(content.First().AssigneeApp)) ||(action ==1 && string.IsNullOrEmpty(content.First().AssigneeVer)))
+                    {
+                        sb.AppendLine("DECLARE @Manager hierarchyid");
+                        sb.AppendLine("Select @Manager = OrganizationNode from  Employee where BusinessEntityID = @businessEntityID");
+                        sb.AppendLine("select Email, Gender, FirstName  from Employee where @Manager.IsDescendantOf(OrganizationNode)=1");
+                        sb.AppendLine("and BusinessEntityID <> @businessEntityID order by OrganizationLevel desc");
 
-                    if (action == "approve")
-                    {
-                        sb.AppendLine("select Email, Gender, FirstName from Employee where OrganizationNode = @Manager.GetAncestor(2)");
-                       
                     }
-                    else
+
+                    else if (action == 2 && !string.IsNullOrEmpty(content.First().AssigneeApp))
                     {
-                        sb.AppendLine("select Email, Gender, FirstName from Employee where OrganizationNode = @Manager.GetAncestor(1)");
-                        paramter = new SqlParameter("@businessEntityID", mainContent.First().PersonVerified);
+
+                        sb.AppendLine("select Email, Gender, FirstName from Employee where BusinessEntityID = @businessEntityID");
+                        paramter = new SqlParameter("@businessEntityID", content.First().AssigneeApp);
+                    }
+                    else if (action ==1 && !string.IsNullOrEmpty(content.First().AssigneeVer))
+                    {
+
+                        sb.AppendLine("select Email, Gender, FirstName from Employee where BusinessEntityID = @businessEntityID");
+                        paramter = new SqlParameter("@businessEntityID", content.First().AssigneeVer);
                     }
 
                 }
@@ -69,7 +78,7 @@ namespace HRM.Services.ServiceImp
 
                 var emailTo = application.GetContext().Database.SqlQuery<Employee>(sb.ToString(), paramter).FirstOrDefault();
                 string body = "";
-                foreach (var item in mainContent)
+                foreach (var item in content)
                 {
 
                     listLeave.AppendLine("<tr>");
@@ -85,13 +94,13 @@ namespace HRM.Services.ServiceImp
                     listLeave.AppendLine("</tr>");
 
                 }
-                if (!action.Equals("completed", StringComparison.OrdinalIgnoreCase))
+                if (action <3)
                 {
-                    body = mailConfig.EmailTemplate.Replace("[Name]", (emailTo.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + emailTo.FirstName).Replace("[Employee]", (EmployeeRequest.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName).Replace("[Action]", action).Replace("[body]", listLeave.ToString());
+                    body = mailConfig.EmailTemplate.Replace("[Name]", (emailTo.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + emailTo.FirstName).Replace("[Employee]", (EmployeeRequest.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName).Replace("[Action]", action == 1 ? "verify" : "approve").Replace("[body]", listLeave.ToString());
                 }
                 else
                 {
-                    body = mailConfig.EmailTemplateAprroved.Replace("[Name]", (EmployeeRequest.Gender.Equals("F",StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName ).Replace("[body]", listLeave.ToString());
+                    body = mailConfig.EmailTemplateAprroved.Replace("[Name]", (EmployeeRequest.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName).Replace("[body]", listLeave.ToString());
                 }
 
 

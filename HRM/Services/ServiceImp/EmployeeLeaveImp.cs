@@ -7,6 +7,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web;
 
 namespace HRM.Services.ServiceImp
@@ -32,35 +33,61 @@ namespace HRM.Services.ServiceImp
                         var lRole = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(role);
                         var funtionId = context.UserFunction.Where(u => u.UserId.Equals(userId, StringComparison.OrdinalIgnoreCase));
                         StringBuilder sb = new StringBuilder();
-                        List< EmployeeLeave> mainContent = new List<EmployeeLeave>();
+                        List<EmployeeLeave> mainContent = new List<EmployeeLeave>();
                         string status = "";
+                        var node = application.GetContext().Database.SqlQuery<Int16>("select OrganizationLevel from Employee where businessEntityID = @businessEntityID", new SqlParameter("@businessEntityID", businessEntityID)).SingleOrDefault();
                         foreach (var value in param.changed.Distinct())
                         {
                             sb.Clear();
-
+                            var assign = Regex.Matches(value.Assignee, @"\[(.*?)\]").Cast<Match>().Select(match => match.Groups[1].Value).ToList().Distinct();
+                            sb.AppendLine("select * from EmployeeLeave EL");
+                            sb.AppendLine("left join LeaveStatus L on EL.Status = L.LeaveStatusId");
+                            sb.AppendLine("where LeaveId = @LeaveId");
+                            var currentLeaveStatus = context.Database.SqlQuery<EmployeeLeave>(sb.ToString(), new SqlParameter("@LeaveId", value.Id == 0 ? value.Title.Split('-')[0].Trim() : value.Id.ToString())).First();
+                            //Kiểm tra quyền
                             if (value.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase) && !businessEntityID.Equals(value.RankId))
                             {
                                 throw new Exception("You can only apply your Leave.");
                             }
-                            else if (value.Status.Equals("Verified", StringComparison.OrdinalIgnoreCase) && !lRole.Contains("F2"))
+                            else if (value.Status.Equals("Verified", StringComparison.OrdinalIgnoreCase) && !lRole.Contains("F2")) // không có quyền Verify
                             {
-                                throw new Exception("Permission is deny. You can not Verify this Leave");
+                                if (string.IsNullOrEmpty(currentLeaveStatus.AssigneeVer)) // Kiểm tra tiếp nhân viên có phải được chọn để phải verify
+                                {
+                                    throw new Exception("Permission is deny. You can not Verify this Leave");
+                                }
+                                else if (!currentLeaveStatus.AssigneeVer.Equals(businessEntityID, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    throw new Exception("Permission is deny. You can not Verify this Leave");
+                                }
                             }
-                            else if (value.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) && !lRole.Contains("F1"))
+                            else if (value.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) )
                             {
-                                throw new Exception("Permission is deny. You can not Approve this Leave.");
+                                if(!lRole.Contains("F1"))
+                                {
+                                    if (string.IsNullOrEmpty(currentLeaveStatus.AssigneeApp))
+                                    {
+                                        throw new Exception("Permission is deny. You can not Approve this Leave.");
+                                    }
+                                    else if (!currentLeaveStatus.AssigneeApp.Equals(businessEntityID, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        throw new Exception("Permission is deny. You can not Approve this Leave.");
+                                    }
+                                }
+                                else if (node>0)
+                                {
+                                    if (value.RankId.Equals(businessEntityID))
+                                    {
+                                        throw new Exception("Permission is deny. You can not Approve leave for yourself.");
+                                    }
+                                }
+                                
                             }
                             else if (value.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase) && !lRole.Contains("F3"))
                             {
                                 throw new Exception("Permission is deny. You can not Rejected this Leave.");
                             }
-
-                            sb.AppendLine("select * from EmployeeLeave EL");
-                            sb.AppendLine("left join LeaveStatus L on EL.Status = L.LeaveStatusId");
-                            sb.AppendLine("where LeaveId = @LeaveId");
-                            var currentLeaveStatus = context.Database.SqlQuery<EmployeeLeave>(sb.ToString(), new SqlParameter("@LeaveId", value.Id == 0 ? value.Title.Split('-')[0].Trim() : value.Id.ToString())).First();
-
-                            if (currentLeaveStatus.Status.Equals(3))
+                            // Kiểm tra trạng thái
+                            if (currentLeaveStatus.Status.Equals(3) || currentLeaveStatus.Status.Equals(4))
                             {
                                 throw new Exception("Permission is deny. You can not  change status of this Leave that Approved ");
                             }
@@ -68,37 +95,57 @@ namespace HRM.Services.ServiceImp
                             {
                                 throw new Exception("Permission is deny. You can not  change status of this Leave back to  Applied or Created ");
                             }
-
+                          
                             sb.Clear();
-
-                            if (value.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase))
+                            var parameter = new List<SqlParameter>()
                             {
-                                sb.AppendLine("update EmployeeLeave set DateApplied = getdate(), Status = 1 where LeaveId =@LeaveId and businessEntityID =@businessEntityID and Status = 0");
+                                new SqlParameter("@businessEntityID", businessEntityID),
+                                new SqlParameter("@LeaveId", value.Id==0  ? value.Title.Split('-')[0].Trim(): value.Id.ToString())
+                            };
 
+
+                            if (value.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase) || value.Status.Equals("Verified", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (assign.Count() == 0 || assign.First().Equals(value.RankId, StringComparison.OrdinalIgnoreCase))// Kiểm tra có chọn người verify hoặc approve thay thế.
+                                {
+                                    parameter.Add(new SqlParameter("@Assignee", DBNull.Value));
+                                }
+                                else
+                                {
+                                    parameter.Add(new SqlParameter("@Assignee", assign.First()));
+                                }
+                                // User apply cho chính mình
+                                if (businessEntityID.Equals(value.RankId, StringComparison.OrdinalIgnoreCase) && funtionId.Where(f => f.FunctionID.Equals("F2", StringComparison.OrdinalIgnoreCase)).Count() > 0)
+                                {
+                                    sb.AppendLine("update EmployeeLeave set DateApplied = isnull(DateApplied, getdate()), DateVerified = isnull(DateVerified, getdate()),");
+                                    sb.AppendLine(" PersonVerified = @businessEntityID, Status = 2, AssigneeApp = @Assignee where LeaveId =@LeaveId");
+                                }
+                                else
+                                {
+                                    if (value.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        sb.AppendLine("update EmployeeLeave set DateApplied = getdate(), Status = 1, AssigneeVer = @Assignee where LeaveId =@LeaveId and Status = 0");
+                                    }
+                                    else
+                                    {
+                                        sb.AppendLine("update EmployeeLeave set  PersonVerified = @businessEntityID,");
+                                        sb.AppendLine(" DateVerified = getdate(), Status = 2, AssigneeApp = @Assignee where LeaveId =@LeaveId and Status = 1");
+                                    }
+                                }
                             }
-                            else if (value.Status.Equals("Verified", StringComparison.OrdinalIgnoreCase) && funtionId.Where(f => f.FunctionID.Equals("F2", StringComparison.OrdinalIgnoreCase)).Count() > 0)
+                            else if (value.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
                             {
-                                sb.AppendLine("update EmployeeLeave set DateVerified = getdate(), PersonVerified = @businessEntityID, Status = 2 where LeaveId =@LeaveId and Status = 1");
-
-                            }
-                            else if (value.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) && funtionId.Where(f => f.FunctionID.Equals("F1", StringComparison.OrdinalIgnoreCase)).Count() > 0)
-                            {
-                                sb.AppendLine("update EmployeeLeave set DateApproved = getdate(), PersonApproved = @businessEntityID, Status = 3 where LeaveId =@LeaveId and status = 2");
+                                sb.AppendLine("update EmployeeLeave set DateApproved = getdate(), PersonApproved = @businessEntityID, Status = 3 where LeaveId =@LeaveId");
                             }
                             else if (value.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase) && funtionId.Where(f => f.FunctionID.Equals("F3", StringComparison.OrdinalIgnoreCase)).Count() > 0)
                             {
                                 sb.AppendLine("update EmployeeLeave set DateApproved = getdate(), PersonApproved = @businessEntityID, Status =4 where LeaveId =@LeaveId and status not in (3,4)");
                             }
 
-                            var parameter = new SqlParameter[]
-                            {
-                                new SqlParameter("@businessEntityID", businessEntityID),
-                                new SqlParameter("@LeaveId", value.Id==0  ? value.Title.Split('-')[0].Trim(): value.Id.ToString())
-                            };
                             if (sb.Length > 0)
                             {
-                                int rowEffect = context.Database.ExecuteSqlCommand(sb.ToString(), parameter);
-                                
+                                int rowEffect = context.Database.ExecuteSqlCommand(sb.ToString(), parameter.ToArray());
+
                                 if (rowEffect > 0)
                                 {
                                     status = value.Status;
@@ -117,13 +164,13 @@ namespace HRM.Services.ServiceImp
                         dbContextTransaction.Commit();
                         if (mainContent.Count > 0)
                         {
-                            helper.SendEmail(status, mainContent, "", "");
+                            helper.SendEmail(status, mainContent, "", node);
                         }
 
                     }
-                  
 
-                    
+
+
 
                     return param;
                 }
@@ -155,6 +202,12 @@ namespace HRM.Services.ServiceImp
                         TotalMiniuteLeave += (8 * 60);
                     }
 
+                }
+                else if (currentLeaveStatus.IsHalfDay)
+                {
+
+                    TotalMiniuteLeave += (4 * 60);
+                    
                 }
                 else
                 {
@@ -258,7 +311,7 @@ namespace HRM.Services.ServiceImp
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("SELECT l.LeaveId AS Id, l.LeaveTypeId AS Subject, l.Residence , l.ToLocation AS cLocation,");
-            sb.AppendLine("L.Contact AS TellOrEmail, l.PersonToCover as PersonCover, l.StartTime, l.EndTime, l.IsAllDay, T.CategoryColor,");
+            sb.AppendLine("L.Contact AS TellOrEmail, l.PersonToCover as PersonCover, l.StartTime, l.EndTime, l.IsAllDay, T.CategoryColor,L.IsHalfDay,");
             sb.AppendLine((dashBoard ? "cast(0 as bit)" : "case when L.Status = 0 then cast(0 as bit) else cast(1 as bit) end") + " as IsReadonly,");
             sb.AppendLine("D.DepartmentID, E.BusinessEntityID");
             sb.AppendLine("FROM ");
@@ -267,6 +320,10 @@ namespace HRM.Services.ServiceImp
             sb.AppendLine("Inner join EmployeeDepartmentHistory H ON H.BusinessEntityID = E.BusinessEntityID");
             sb.AppendLine("left join Department D ON H.DepartmentID = D.DepartmentID");
             sb.AppendLine("Where L.StartTime between @StartDate and @EndDate");
+            if (dashBoard)
+            {
+                sb.AppendLine("and status = 3");
+            }
             var paramter = new List<SqlParameter>();
             paramter.Add(new SqlParameter("@StartDate", dateRequest.StartDate.ToString("yyyy-MM-dd 00:00:00")));
             paramter.Add(new SqlParameter("@EndDate", dateRequest.EndDate.ToString("yyyy-MM-dd 23:59:59")));
@@ -291,9 +348,10 @@ namespace HRM.Services.ServiceImp
             
             sb.AppendLine("DECLARE @Manager hierarchyid  ");
             sb.AppendLine("SELECT @Manager = OrganizationNode from  Employee where BusinessEntityID = @BusinessEntityID");
-            sb.AppendLine("select EL.LeaveId as Id,EL.BusinessEntityID as RankId, cast (EL.LeaveId as nvarchar(10)) + ' - ' + LT.Description as Title,LS.LeaveStatusDesc as Status,");
-            sb.AppendLine("null as Sumary, 'Normal' as Priority,CONVERT(varchar(20),StartTime, 120) + ' - ' + CONVERT(varchar(20),EndTime, 120) as Tags,");
-            sb.AppendLine("QUOTENAME(EL.BusinessEntityID)  + E.FullName as Assignee");
+            sb.AppendLine("select EL.LeaveId as Id,EL.BusinessEntityID as RankId, cast (EL.LeaveId as nvarchar(10)) + ' - ' + LT.Description as Title, LS.LeaveStatusDesc as Status,");
+            sb.AppendLine("null as Sumary,'' as Remark, 'Normal' as Priority,CONVERT(varchar(20),StartTime, 120) + ' - ' + CONVERT(varchar(20),EndTime, 120) as Tags,");
+            //  sb.AppendLine("case when el.status in (0,1) then E.FullName else Assignee end as Assignee");
+            sb.AppendLine("QUOTENAME(EL.BusinessEntityID) + FullName Assignee, EL.AssigneeApp,AssigneeVer");
             sb.AppendLine("from Employee E ");
             sb.AppendLine("inner join EmployeeLeave EL on E.BusinessEntityID = El.BusinessEntityID");
             sb.AppendLine("left join LeaveStatus LS on EL.Status = LS.LeaveStatusId");
@@ -302,6 +360,8 @@ namespace HRM.Services.ServiceImp
             sb.AppendLine("select BusinessEntityID");
             sb.AppendLine("from Employee");
             sb.AppendLine("where (OrganizationNode.IsDescendantOf(@Manager)=1)");
+            
+
             var node = application.GetContext().Database.SqlQuery<Int16>("select OrganizationLevel from Employee where BusinessEntityID =@businessEntityID", new SqlParameter("@BusinessEntityID", businessEntityID)).First();
             if (node < 1)
             {
@@ -311,6 +371,17 @@ namespace HRM.Services.ServiceImp
             {
                 sb.AppendLine("and OrganizationNode <> hierarchyid::GetRoot() )");
             }
+            sb.AppendLine("union all");
+            sb.AppendLine("select EL.LeaveId as Id,EL.BusinessEntityID as RankId, cast (EL.LeaveId as nvarchar(10)) + ' - ' + LT.Description as Title, LS.LeaveStatusDesc as Status,");
+            sb.AppendLine("null as Sumary,'' as Remark, 'Normal' as Priority,CONVERT(varchar(20),StartTime, 120) + ' - ' + CONVERT(varchar(20),EndTime, 120) as Tags,");
+            //  sb.AppendLine("case when el.status in (0,1) then E.FullName else Assignee end as Assignee");
+            sb.AppendLine("QUOTENAME(E1.BusinessEntityID) + E1.FullName Assignee, EL.AssigneeApp,AssigneeVer");
+            sb.AppendLine("from Employee E ");
+            sb.AppendLine("inner join EmployeeLeave EL on E.BusinessEntityID = El.AssigneeApp or E.BusinessEntityID = El.AssigneeVer");
+            sb.AppendLine("left join LeaveStatus LS on EL.Status = LS.LeaveStatusId");
+            sb.AppendLine("left join LeaveType LT on EL.LeaveTypeId = LT.LeaveTypeId");
+            sb.AppendLine("LEFT join Employee E1 on El.BusinessEntityID = E1.BusinessEntityID");
+            sb.AppendLine("WHERE e.BusinessEntityID = @BusinessEntityID");
             var response = application.GetContext().Database.SqlQuery<LeavePendingApprove>(sb.ToString(), new SqlParameter("@BusinessEntityID", businessEntityID)).ToList();
             return response;
         }
@@ -340,6 +411,7 @@ namespace HRM.Services.ServiceImp
                         EndTime = value.EndTime,
                         LeaveTypeId = value.Subject,
                         IsAllDay = value.IsAllDay,
+                        IsHalfDay = value.IsAllDay ? false : value.IsHalfDay,
                         Residence = value.Residence,
                         ToLocation = string.IsNullOrEmpty(value.cLocation) ? null : value.cLocation,
                         Contact = value.TellOrEmail,
@@ -352,6 +424,7 @@ namespace HRM.Services.ServiceImp
 
                     };
 
+                    CheckHaltDay(appointment);
                     application.GetContext().EmployeeLeave.Add(appointment);
                     application.GetContext().SaveChanges();
                 }
@@ -372,6 +445,7 @@ namespace HRM.Services.ServiceImp
                         appointment.EndTime = value.EndTime;
                         appointment.LeaveTypeId = value.Subject;
                         appointment.IsAllDay = value.IsAllDay;
+                        appointment.IsHalfDay = value.IsAllDay ? false : value.IsHalfDay;
                         appointment.Residence = value.Residence;
                         appointment.ToLocation = value.cLocation;
                         appointment.Contact = value.TellOrEmail;
@@ -379,8 +453,9 @@ namespace HRM.Services.ServiceImp
                         appointment.UserId = userId;
                         appointment.BusinessEntityID = businessEntityID;
                         appointment.DepartmentId = departmentId;
-
+                        CheckHaltDay(appointment);
                     }
+                   
                     application.GetContext().SaveChanges();
                 }
                 if (param.action == "remove" || (param.action == "batch" && param.deleted.Count > 0)) // this block of code will execute while removing the appointment
@@ -417,6 +492,23 @@ namespace HRM.Services.ServiceImp
             }
             
          //   return Json(application.GetContext().EmployeeLeave.ToList());
+        }
+
+        private  void CheckHaltDay(EmployeeLeave appointment)
+        {
+            if (appointment.IsHalfDay)
+            {
+                if (appointment.StartTime.ToString("tt") == "AM")
+                {
+                    appointment.StartTime = new DateTime(appointment.StartTime.Year, appointment.StartTime.Month, appointment.StartTime.Day, 8, 0, 0);
+                    appointment.EndTime = new DateTime(appointment.EndTime.Year, appointment.EndTime.Month, appointment.EndTime.Day, 12, 0, 0);
+                }
+                else
+                {
+                    appointment.StartTime = new DateTime(appointment.StartTime.Year, appointment.StartTime.Month, appointment.StartTime.Day, 13, 0, 0);
+                    appointment.EndTime = new DateTime(appointment.EndTime.Year, appointment.EndTime.Month, appointment.EndTime.Day, 17, 0, 0);
+                }
+            }
         }
     }
 }
