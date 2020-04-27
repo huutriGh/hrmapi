@@ -8,6 +8,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Web;
 
 namespace HRM.Services.ServiceImp
@@ -164,7 +165,7 @@ namespace HRM.Services.ServiceImp
                         dbContextTransaction.Commit();
                         if (mainContent.Count > 0)
                         {
-                            helper.SendEmail(status, mainContent, "", node);
+                            Task.Factory.StartNew(() => helper.SendEmail(status, mainContent, "", node));
                         }
 
                     }
@@ -179,6 +180,7 @@ namespace HRM.Services.ServiceImp
 
         }
 
+       
         private  void CalculationRemaining( EmployeeLeave currentLeaveStatus)
         {
             double TotalMiniuteLeave;

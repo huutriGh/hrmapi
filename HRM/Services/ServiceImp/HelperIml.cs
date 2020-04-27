@@ -46,28 +46,34 @@ namespace HRM.Services.ServiceImp
                 SqlParameter paramter = new SqlParameter("@businessEntityID", content.First().BusinessEntityID);
                 if (action == 1 || action == 2)
                 {
-                    if (  ( action ==2 && string.IsNullOrEmpty(content.First().AssigneeApp)) ||(action ==1 && string.IsNullOrEmpty(content.First().AssigneeVer)))
+
+                    if (action == 1 && !string.IsNullOrEmpty(content.First().AssigneeVer))
                     {
-                        sb.AppendLine("DECLARE @Manager hierarchyid");
-                        sb.AppendLine("Select @Manager = OrganizationNode from  Employee where BusinessEntityID = @businessEntityID");
-                        sb.AppendLine("select Email, Gender, FirstName  from Employee where @Manager.IsDescendantOf(OrganizationNode)=1");
-                        sb.AppendLine("and BusinessEntityID <> @businessEntityID order by OrganizationLevel desc");
 
+                        sb.AppendLine("select Email, Gender, FirstName from Employee where BusinessEntityID = @businessEntityID");
+                        paramter = new SqlParameter("@businessEntityID", content.First().AssigneeVer);
                     }
-
                     else if (action == 2 && !string.IsNullOrEmpty(content.First().AssigneeApp))
                     {
 
                         sb.AppendLine("select Email, Gender, FirstName from Employee where BusinessEntityID = @businessEntityID");
                         paramter = new SqlParameter("@businessEntityID", content.First().AssigneeApp);
                     }
-                    else if (action ==1 && !string.IsNullOrEmpty(content.First().AssigneeVer))
+
+                    //else if ((action == 2 && string.IsNullOrEmpty(content.First().AssigneeApp)) || (action == 1 && string.IsNullOrEmpty(content.First().AssigneeVer)))
+                    else
                     {
+                        sb.AppendLine("DECLARE @Manager hierarchyid");
+                        sb.AppendLine("Select @Manager = OrganizationNode from  Employee where BusinessEntityID = @businessEntityID");
+                        sb.AppendLine("select Email, Gender, FirstName  from Employee where @Manager.IsDescendantOf(OrganizationNode)=1");
+                        sb.AppendLine("and BusinessEntityID <> @businessEntityID order by OrganizationLevel desc");
+                        if (action == 2)
+                        {
+                            paramter = new SqlParameter("@businessEntityID", content.First().PersonVerified);
 
-                        sb.AppendLine("select Email, Gender, FirstName from Employee where BusinessEntityID = @businessEntityID");
-                        paramter = new SqlParameter("@businessEntityID", content.First().AssigneeVer);
+                        }
+
                     }
-
                 }
                 else
                 {
@@ -94,7 +100,7 @@ namespace HRM.Services.ServiceImp
                     listLeave.AppendLine("</tr>");
 
                 }
-                if (action <3)
+                if (action < 3)
                 {
                     body = mailConfig.EmailTemplate.Replace("[Name]", (emailTo.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + emailTo.FirstName).Replace("[Employee]", (EmployeeRequest.Gender.Equals("F", StringComparison.OrdinalIgnoreCase) ? "Ms. " : "Mr. ") + EmployeeRequest.FullName).Replace("[Action]", action == 1 ? "verify" : "approve").Replace("[body]", listLeave.ToString());
                 }
