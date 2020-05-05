@@ -272,8 +272,8 @@ namespace HRM.Services.ServiceImp
                 }
                 if (TotalMiniuteLeave > 0)
                 {
-                   
-                   
+
+
                     StringBuilder sb = new StringBuilder();
                     if (date.Month > 3 || emp.PreviousYearVacationHours == 0)
                     {
@@ -297,10 +297,10 @@ namespace HRM.Services.ServiceImp
 
 
                     var pr = new SqlParameter[]
-                  {
+                    {
                                             new SqlParameter("@businessEntityID", currentLeaveStatus.BusinessEntityID),
                                             new SqlParameter("@TotalMiniuteLeave", TotalMiniuteLeave)
-                  };
+                    };
                     application.GetContext().Database.ExecuteSqlCommand(sb.ToString(), pr);
                 }
             }

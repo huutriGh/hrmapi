@@ -16,6 +16,7 @@ namespace HRM.Services.ServiceImp
 {
     public class HelperIml : IHelper
     {
+        private const int Keysize = 256;
         private readonly IApplication application;
         public HelperIml(IApplication application)
         {
@@ -27,9 +28,59 @@ namespace HRM.Services.ServiceImp
             
 
         }
-        private const int Keysize = 256;
-
        
+        public static DateTime DateAddMonths(DateTime startDate, int monthCount, bool sticky)
+        {
+            DateTime result = startDate.AddMonths(monthCount);
+            if (sticky)
+            {
+                if (DateTime.DaysInMonth(startDate.Year, startDate.Month) == startDate.Day)
+                {
+                    int resultYear = result.Year;
+                    int resultMonth = result.Month;
+                    result = new DateTime(resultYear, resultMonth,
+                                          DateTime.DaysInMonth(resultYear, resultMonth));
+                }
+            }
+            return result;
+        }
+
+        public static void DateDiffMonths(DateTime date1, DateTime date2, bool sticky,
+                                    out int months, out int days)
+        {
+
+            // ensure that date1 <= date2
+            if (date2 < date1)
+            {
+                DateTime t = date2;
+                date2 = date1;
+                date1 = t;
+            }
+
+            // make a guess at the answer; using 31 means that we'll be close but won't exceed
+            int monthCount = ((date2 - date1).Days / 31);
+
+            // find the maximum number of months that's less than or equal to the second date
+            DateTime testDate = DateAddMonths(date1, monthCount, sticky);
+            while (testDate < date2)
+            {
+                testDate = DateAddMonths(date1, ++monthCount, sticky);
+            }
+
+            // if we've hit the exact date, return the number of months and zero days
+            if (testDate == date2)
+            {
+                months = monthCount;
+                days = 0;
+                return;
+            }
+
+            // otherwise we exceeded the second date, back up and return the correct values
+            testDate = DateAddMonths(date1, --monthCount, sticky);
+            months = monthCount;
+            days = (date2 - testDate).Days;
+        }
+
         private const int DerivationIterations = 1000;
         public void SendEmail(string subject, List<EmployeeLeave> mainContent, string mailTo, Int16 node)
         {

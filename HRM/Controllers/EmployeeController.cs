@@ -36,6 +36,7 @@ namespace HRM.Controllers
         }
         [Route("api/Employee/GetAssignee")]
         [HttpGet]
+       
         public IHttpActionResult GetAssignee()
         {
             var claimsIdentity = this.User.Identity as ClaimsIdentity;
